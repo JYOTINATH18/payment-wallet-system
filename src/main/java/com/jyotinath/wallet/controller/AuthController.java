@@ -1,6 +1,7 @@
 package com.jyotinath.wallet.controller;
 
 import com.jyotinath.wallet.dto.ApiResponse;
+import com.jyotinath.wallet.dto.LoginRequest;
 import com.jyotinath.wallet.dto.RegisterRequest;
 import com.jyotinath.wallet.entity.User;
 import com.jyotinath.wallet.service.UserService;
@@ -30,6 +31,17 @@ public class AuthController {
                             user.getUsername()));
         } catch (RuntimeException r){
                 return ResponseEntity.badRequest().body(new ApiResponse(false, r.getMessage(), null));
+        }
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<ApiResponse> login(@RequestBody LoginRequest request){
+        try{
+            String token = userService.login(request);
+
+            return  ResponseEntity.ok(new ApiResponse(true, "Login Successful!", token));
+        }catch (RuntimeException e){
+            return ResponseEntity.badRequest().body(new ApiResponse(false, e.getMessage(),null));
         }
     }
 }
