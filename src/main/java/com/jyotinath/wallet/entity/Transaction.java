@@ -27,10 +27,11 @@ public class Transaction {
     private BigDecimal amount;
 
     @Column(nullable = false)
+    private String crDrFlg;
+
+    @Column(nullable = false)
     private LocalDateTime timestamp;
 
     @Column(nullable = false)
     private String status;
-
-
 }

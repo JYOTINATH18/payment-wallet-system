@@ -1,11 +1,10 @@
 package com.jyotinath.wallet.controller;
 
-import com.jyotinath.wallet.dto.ApiResponse;
-import com.jyotinath.wallet.dto.DepositeRequest;
-import com.jyotinath.wallet.dto.TransferRequest;
+import com.jyotinath.wallet.dto.*;
 import com.jyotinath.wallet.entity.Transaction;
 import com.jyotinath.wallet.service.UserService;
 import com.jyotinath.wallet.service.WalletService;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -60,17 +59,13 @@ public class WalletController {
         }
 
         @GetMapping("/history")
-    public ResponseEntity<ApiResponse> getHistory(){
-        try{
+    public ResponseEntity<PaginationResponse<TransactionResponse>> getHistory(@RequestParam(defaultValue =  "0") int page, @RequestParam(defaultValue = "5") int size){
+
             String username = getCurrentUsername();
             long user_id = userService.getUserByUsername(username).getId();
 
-            List<Transaction> history = walletService.getHistory(user_id);
+            return ResponseEntity.ok(walletService.getHistory(user_id, page, size));
 
-            return ResponseEntity.ok(new ApiResponse(true, "History fetched!", history));
-        }catch (RuntimeException e){
-            return  ResponseEntity.badRequest().body(new ApiResponse(false, e.getMessage(), null));
-        }
         }
 
     @PostMapping("/deposit")
@@ -79,7 +74,7 @@ public class WalletController {
             String username = getCurrentUsername();
             long user_id = userService.getUserByUsername(username).getId();
             walletService.deposit(username, user_id, amount);
-            return ResponseEntity.ok(new ApiResponse(true, "Amount deposited successfully", null));
+            return ResponseEntity.ok(new ApiResponse(true, "Amount deposited successfully", amount));
         } catch (RuntimeException e){
         return ResponseEntity.badRequest().body(new ApiResponse(false,e.getMessage(), null));
     }

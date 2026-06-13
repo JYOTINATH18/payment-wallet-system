@@ -1,6 +1,8 @@
 package com.jyotinath.wallet.service;
 
 import com.jyotinath.wallet.dto.DepositeRequest;
+import com.jyotinath.wallet.dto.PaginationResponse;
+import com.jyotinath.wallet.dto.TransactionResponse;
 import com.jyotinath.wallet.dto.TransferRequest;
 import com.jyotinath.wallet.entity.Transaction;
 import com.jyotinath.wallet.entity.User;
@@ -9,11 +11,13 @@ import com.jyotinath.wallet.repository.TransactionRepository;
 import com.jyotinath.wallet.repository.UserRepository;
 import com.jyotinath.wallet.repository.WalletRepository;
 import jakarta.transaction.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Service
 public class WalletService {
@@ -54,6 +58,7 @@ public class WalletService {
         Transaction txn = new Transaction();
         txn.setSender(sender);
         txn.setReceiver(reciever);
+        txn.setCrDrFlg("DEBIT");
         txn.setAmount(request.getAmount());
         txn.setStatus("SUCCESS");
         txn.setTimestamp(LocalDateTime.now());
@@ -62,9 +67,38 @@ public class WalletService {
         return "Transaction successful!";
     }
 
-    public List<Transaction> getHistory(Long userId){
-        Wallet wallet = walletRepository.findByUserId(userId).orElseThrow(()-> new RuntimeException("Wallet not found!"));
-        return transactionRepository.findBySenderId(wallet.getId());
+    public PaginationResponse<TransactionResponse> getHistory(long userId, int page, int size){
+        Wallet wallet = walletRepository.findByUserId(userId)
+                .orElseThrow(() -> new RuntimeException("Wallet not found"));
+
+        Pageable pageable = PageRequest.of(page,size);
+
+        Page<Transaction> transactions = transactionRepository.findBySender(wallet, pageable);
+
+        Page<TransactionResponse> responsePage =
+                transactions.map(tx ->
+                        new TransactionResponse(
+                                tx.getId(),
+                                tx.getAmount(),
+                                tx.getCrDrFlg(),
+                                tx.getSender()
+                                        .getUser()
+                                        .getUsername(),
+                                tx.getReceiver()
+                                        .getUser()
+                                        .getUsername(),
+                                tx.getTimestamp()
+                        ));
+
+        return new PaginationResponse<>(
+                responsePage.getNumber(),
+                responsePage.getSize(),
+                responsePage.getTotalElements(),
+                responsePage.getTotalPages(),
+                responsePage.hasNext(),
+                responsePage.getContent()
+        );
+
     }
 
     @Transactional
@@ -73,11 +107,20 @@ public class WalletService {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        Wallet wallet = walletRepository.findByUserId(user_id)
+        Wallet owner  = walletRepository.findByUserId(user_id)
                 .orElseThrow(() -> new RuntimeException("Wallet not found"));
 
-        wallet.setBalance(wallet.getBalance().add(amount.getAmount()));
+        owner.setBalance(owner.getBalance().add(amount.getAmount()));
 
-        walletRepository.save(wallet);
+        Transaction txn = new Transaction();
+        txn.setSender(owner);
+        txn.setReceiver(owner);
+        txn.setCrDrFlg("CREDIT");
+        txn.setAmount(amount.getAmount());
+        txn.setStatus("SUCCESS");
+        txn.setTimestamp(LocalDateTime.now());
+        transactionRepository.save(txn);
+
+        walletRepository.save(owner);
     }
 }
