@@ -7,6 +7,8 @@ import com.jyotinath.wallet.dto.TransferRequest;
 import com.jyotinath.wallet.entity.Transaction;
 import com.jyotinath.wallet.entity.User;
 import com.jyotinath.wallet.entity.Wallet;
+import com.jyotinath.wallet.event.TransactionEvent;
+import com.jyotinath.wallet.kafka.TransactionProducer;
 import com.jyotinath.wallet.repository.TransactionRepository;
 import com.jyotinath.wallet.repository.UserRepository;
 import com.jyotinath.wallet.repository.WalletRepository;
@@ -24,13 +26,14 @@ public class WalletService {
 
     private final WalletRepository walletRepository;
     private final TransactionRepository transactionRepository;
-
     private final UserRepository userRepository;
+    private final TransactionProducer transactionProducer;
 
-    public  WalletService(WalletRepository walletRepository, TransactionRepository transactionRepository, UserRepository userRepository){
+    public  WalletService(WalletRepository walletRepository, TransactionRepository transactionRepository, UserRepository userRepository, TransactionProducer transactionProducer){
         this.walletRepository = walletRepository;
         this.transactionRepository = transactionRepository;
         this.userRepository = userRepository;
+        this.transactionProducer = transactionProducer;
     }
 
     public BigDecimal getBalance(Long userId){
@@ -63,6 +66,14 @@ public class WalletService {
         txn.setStatus("SUCCESS");
         txn.setTimestamp(LocalDateTime.now());
         transactionRepository.save(txn);
+        TransactionEvent event = new TransactionEvent(
+                senderId,
+                reciever.getId(),
+                request.getAmount(),
+                "SUCCESS",
+                LocalDateTime.now()
+        );
+        transactionProducer.publish(event);
 
         return "Transaction successful!";
     }
